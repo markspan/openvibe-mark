@@ -4,6 +4,7 @@
 // @author J.T. Lindgren
 // 
 
+#include <chrono>
 #include <iostream>
 #include <ctime>     // std::ctime
 #include <algorithm> // std::replace, std::max

@@ -21,6 +21,7 @@
 
 #include "CBoxAlgorithmDLLBridge.hpp"
 
+#include <algorithm>
 #include <iostream>
 
 #if defined(TARGET_OS_Windows)

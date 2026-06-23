@@ -160,6 +160,7 @@ bool CKeyboardStimulator::initialize()
 
 	m_visualizationCtx = dynamic_cast<VisualizationToolkit::IVisualizationContext*>(this->createPluginObject(OVP_ClassId_Plugin_VisualizationCtx));
 	m_visualizationCtx->setWidget(*this, m_widget);
+	gtk_widget_grab_focus(m_widget);
 
 	//TCP TAGGING
 	m_stimulusSender = TCPTagging::CreateStimulusSender();

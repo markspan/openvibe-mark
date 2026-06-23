@@ -7,6 +7,7 @@
 #include <array>
 #include <string>
 #include <cstdint>
+#include <chrono>
 #include <thread>
 #include <mutex>
 #include <queue>
