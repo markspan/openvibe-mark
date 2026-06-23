@@ -1,0 +1,23 @@
+{
+    "cmake.buildDirectory": "${workspaceFolder}/meta/build",
+    "cmake.configureOnOpen": false,
+    "cmake.generator": "Ninja",
+    "cmake.buildBeforeRun": false,
+    "C_Cpp.default.compileCommands": "${workspaceFolder}/meta/build/compile_commands.json",
+    "C_Cpp.intelliSenseEngine": "default",
+    "editor.formatOnSave": false,
+    "files.associations": {
+        "*.hpp": "cpp",
+        "*.cpp": "cpp"
+    },
+    "terminal.integrated.defaultProfile.windows": "Anaconda (openvibe-370)",
+    "terminal.integrated.profiles.windows": {
+        "Anaconda (openvibe-370)": {
+            "path": "cmd.exe",
+            "args": [
+                "/k",
+                "C:\\Users\\P154492\\AppData\\Local\\anaconda3\\Scripts\\activate.bat C:\\Users\\P154492\\AppData\\Local\\anaconda3\\envs\\openvibe-370"
+            ]
+        }
+    }
+}
