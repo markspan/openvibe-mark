@@ -248,6 +248,8 @@ public:
 	std::vector<CString> m_ErrorState;
 
 	bool m_StimulationColorsShown = false;
+	GdkColor m_BackgroundColor = { 0, 61680, 61680, 61680 };   // current background (#F0F0F0)
+	GdkColor m_LineColor       = { 0,     0,     0,     0 };   // current signal trace colour (black)
 };
 }  // namespace SimpleVisualization
 }  // namespace Plugins

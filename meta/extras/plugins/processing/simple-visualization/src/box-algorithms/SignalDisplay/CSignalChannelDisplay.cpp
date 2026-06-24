@@ -75,26 +75,32 @@ struct UGLabelIdleData { GtkWidget* drawingArea; gint stopY; std::vector<UGLabel
 // Self-contained idle for UG scan-mode stimulation redraw.
 // All data is captured at expose time so no CSignalChannelDisplay pointer is needed —
 // safe regardless of widget/display lifetime.
-struct UGStimEntry { gint x; std::string label; };
+struct UGStimEntry { gint x; std::string label; double isi; };  // isi < 0 = first visible stim
 struct UGStimIdleData { GtkWidget* drawingArea; gint startY, stopY; std::vector<UGStimEntry> stims; };
 
 static gboolean UGStimIdleDraw(gpointer data)
 {
 	auto* d = static_cast<UGStimIdleData*>(data);
 	if (d->drawingArea->window) {
-		GdkGC* lineGC = gdk_gc_new(d->drawingArea->window);
-		gdk_gc_set_line_attributes(lineGC, 1, GDK_LINE_ON_OFF_DASH, GDK_CAP_BUTT, GDK_JOIN_BEVEL);
-		GdkColor ug = { 0, 60000, 28000, 0 };
-		gdk_gc_set_rgb_fg_color(lineGC, &ug);
+		cairo_t* cr      = gdk_cairo_create(d->drawingArea->window);
+		const int height = d->stopY - d->startY;
 
-		cairo_t* cr = gdk_cairo_create(d->drawingArea->window);
+		// Dotted 1-px orange line
+		const double dashes[] = { 3.0, 3.0 };
+		cairo_set_dash(cr, dashes, 2, 0.0);
+		cairo_set_line_width(cr, 1.0);
+		cairo_set_source_rgba(cr, 0.94, 0.44, 0.0, 1.0);
 
 		for (const auto& s : d->stims) {
-			gdk_draw_line(d->drawingArea->window, lineGC, s.x, d->startY, s.x, d->stopY);
+			cairo_move_to(cr, s.x + 0.5, d->startY);
+			cairo_line_to(cr, s.x + 0.5, d->stopY);
+			cairo_stroke(cr);
 
+			// Flag badge
 			PangoFontDescription* font = pango_font_description_new();
 			pango_font_description_set_family(font, "Sans");
-			pango_font_description_set_absolute_size(font, 11 * PANGO_SCALE);
+			pango_font_description_set_weight(font, PANGO_WEIGHT_BOLD);
+			pango_font_description_set_absolute_size(font, 10 * PANGO_SCALE);
 			PangoLayout* layout = pango_cairo_create_layout(cr);
 			pango_layout_set_text(layout, s.label.c_str(), -1);
 			pango_layout_set_font_description(layout, font);
@@ -102,25 +108,43 @@ static gboolean UGStimIdleDraw(gpointer data)
 			int tw = 0, th = 0;
 			pango_layout_get_pixel_size(layout, &tw, &th);
 
-			const int boxW = 36, pad = 2;
-			const int lx = s.x - boxW - 2 * pad, ly = d->stopY - th - 2 * pad - 2;
-			const int bw = boxW + 2 * pad,        bh = th  + 2 * pad;
+			const int pad = 2;
+			const int tip = 7;
+			const int bw  = tw + 2 * pad;
+			const int bh  = th + 2 * pad;
+			const double lx = s.x - bw - tip - 1.0;
+			const double ly = d->startY + 3.0;
 
-			cairo_set_source_rgba(cr, 0.66, 0.89, 1.0, 0.25);
-			cairo_rectangle(cr, lx, ly, bw, bh);
-			cairo_fill(cr);
-			cairo_set_source_rgba(cr, 0.0, 0.0, 0.55, 1.0);
+			// Flag path: rectangle body + right-pointing triangle
+			cairo_new_path(cr);
+			cairo_move_to(cr, lx,            ly);
+			cairo_line_to(cr, lx + bw,       ly);
+			cairo_line_to(cr, lx + bw + tip, ly + bh / 2.0);
+			cairo_line_to(cr, lx + bw,       ly + bh);
+			cairo_line_to(cr, lx,            ly + bh);
+			cairo_close_path(cr);
+
+			// Fill: light blue at 20% opacity
+			cairo_set_dash(cr, nullptr, 0, 0.0);   // solid for fill/outline
+			cairo_set_source_rgba(cr, 0.52, 0.76, 1.0, 0.20);
+			cairo_fill_preserve(cr);
+			// Outline: solid darker blue
+			cairo_set_source_rgb(cr, 0.20, 0.45, 0.80);
 			cairo_set_line_width(cr, 1.0);
-			cairo_rectangle(cr, lx + 0.5, ly + 0.5, bw - 1, bh - 1);
 			cairo_stroke(cr);
-			cairo_set_source_rgba(cr, 0.0, 0.0, 0.0, 1.0);
-			cairo_move_to(cr, lx + pad + (boxW - tw) / 2, ly + pad);
+
+			// Dark navy text
+			cairo_set_source_rgb(cr, 0.05, 0.10, 0.35);
+			cairo_move_to(cr, lx + pad, ly + pad);
 			pango_cairo_show_layout(cr, layout);
 			g_object_unref(layout);
-		}
 
+			// Restore dotted line style for next stim line
+			cairo_set_dash(cr, dashes, 2, 0.0);
+			cairo_set_line_width(cr, 1.0);
+			cairo_set_source_rgba(cr, 0.94, 0.44, 0.0, 1.0);
+		}
 		cairo_destroy(cr);
-		g_object_unref(lineGC);
 	}
 	g_object_unref(d->drawingArea);
 	delete d;
@@ -571,17 +595,27 @@ void CSignalChannelDisplay::Draw(const GdkRectangle& /*area*/)
 		idle->stopY       = m_StopY;
 		g_object_ref(m_DrawingArea);
 
+		// Track previous label-stim time across the entire database (not just visible window)
+		// so ISI is correct even for the first visible trigger.
+		uint64_t prevStimTime = 0;
+		bool havePrev         = false;
 		for (auto& kv : m_Database->m_Stimulations) {
-			if (kv.first < visStart || kv.first > visEnd) { continue; }
 			if (kv.second < OVTK_StimulationId_LabelStart + 1 || kv.second > OVTK_StimulationId_LabelEnd) { continue; }
-			size_t j = firstBuf;
-			while (j < N - 1 && kv.first > m_Database->m_EndTime[j]) { j++; }
-			const uint64_t dur = m_Database->m_EndTime[j] - m_Database->m_StartTime[j];
-			const size_t   si  = dur > 0 ? size_t((kv.first - m_Database->m_StartTime[j]) * spb / dur) : 0;
-			const gint     x   = gint(double(j - firstBuf) * m_WidthPerBuffer + double(si) * m_PointStep);
-			if (x >= 0 && x < m_Width) {
-				idle->stims.push_back({ x, std::to_string(kv.second - OVTK_StimulationId_LabelStart) });
+
+			if (kv.first >= visStart && kv.first <= visEnd) {
+				size_t j = firstBuf;
+				while (j < N - 1 && kv.first > m_Database->m_EndTime[j]) { j++; }
+				const uint64_t dur = m_Database->m_EndTime[j] - m_Database->m_StartTime[j];
+				const size_t   si  = dur > 0 ? size_t((kv.first - m_Database->m_StartTime[j]) * spb / dur) : 0;
+				const gint     x   = gint(double(j - firstBuf) * m_WidthPerBuffer + double(si) * m_PointStep);
+				if (x >= 0 && x < m_Width) {
+					const double isi = havePrev ? double(kv.first - prevStimTime) / double(uint64_t(1) << 32) : -1.0;
+					idle->stims.push_back({ x, std::to_string(kv.second - OVTK_StimulationId_LabelStart), isi });
+				}
 			}
+
+			prevStimTime = kv.first;
+			havePrev     = true;
 		}
 
 		if (!idle->stims.empty()) { g_idle_add(UGStimIdleDraw, idle); }
@@ -805,12 +839,18 @@ bool CSignalChannelDisplay::drawSignals(const size_t firstBuffer, const size_t l
 	GdkColor lineColor = InitGDKColor(0, 0, 0, 0);
 	lastChannel        = std::min(lastChannel, size_t(m_ChannelList.size() - 1));
 
-#ifdef DEBUG
-	//	std::cout << "Channel range [" << firstChannelToDisplay << "," << lastChannelToDisplay << "]\n";
-#endif
+	// Cairo context for anti-aliased signal lines in UG mode
+	cairo_t* lineCr = nullptr;
+	if (m_UGMode && m_DrawingArea->window) {
+		lineCr = gdk_cairo_create(GDK_DRAWABLE(m_DrawingArea->window));
+		cairo_set_antialias(lineCr, CAIRO_ANTIALIAS_GOOD);
+		cairo_set_line_width(lineCr, 1.0);
+		cairo_set_line_join(lineCr, CAIRO_LINE_JOIN_ROUND);
+	}
 
 	for (size_t k = firstChannel; k <= lastChannel; ++k) {
 		if (m_MultiView) { m_ParentDisplayView->GetMultiViewColor(m_ChannelList[k], lineColor); }
+		else if (m_UGMode) { lineColor = m_ParentDisplayView->m_LineColor; }
 		else { if (m_CurrentSignalMode != GlobalBestFit) { lineColor.red = 65535; } }
 		gdk_gc_set_rgb_fg_color(m_DrawingArea->style->fg_gc[GTK_WIDGET_STATE(m_DrawingArea)], &lineColor);
 
@@ -841,12 +881,23 @@ bool CSignalChannelDisplay::drawSignals(const size_t firstBuffer, const size_t l
 #endif
 
 		if (nPointsToDisplay != 0) {
-			//draw all the points and link them
-			GdkDrawable* target = m_ActiveDrawable ? m_ActiveDrawable : GDK_DRAWABLE(m_DrawingArea->window);
-			gdk_draw_lines(target, m_DrawingArea->style->fg_gc[GTK_WIDGET_STATE(m_DrawingArea)], &m_ParentDisplayView->m_Points[0],
-						   gint(nPointsToDisplay));
+			if (lineCr) {
+				// Anti-aliased Cairo path for UG mode
+				cairo_set_source_rgb(lineCr, lineColor.red / 65535.0, lineColor.green / 65535.0, lineColor.blue / 65535.0);
+				const auto& pts = m_ParentDisplayView->m_Points;
+				cairo_move_to(lineCr, pts[0].x + 0.5, pts[0].y + 0.5);
+				for (size_t i = 1; i < nPointsToDisplay; ++i) { cairo_line_to(lineCr, pts[i].x + 0.5, pts[i].y + 0.5); }
+				cairo_stroke(lineCr);
+			}
+			else {
+				GdkDrawable* target = m_ActiveDrawable ? m_ActiveDrawable : GDK_DRAWABLE(m_DrawingArea->window);
+				gdk_draw_lines(target, m_DrawingArea->style->fg_gc[GTK_WIDGET_STATE(m_DrawingArea)], &m_ParentDisplayView->m_Points[0],
+							   gint(nPointsToDisplay));
+			}
 		}
 	}
+
+	if (lineCr) { cairo_destroy(lineCr); }
 
 	// In UG mode, stimulations are redrawn every frame by DrawUGStimulationsToDrawable so the
 	// ring stays signal-only and triggers survive database pruning across pauses/exposes.
@@ -962,21 +1013,29 @@ bool CSignalChannelDisplay::drawSignals(const size_t firstBuffer, const size_t l
 
 void CSignalChannelDisplay::drawProgressLine(const size_t firstBufferIdx, const size_t firstBufferPos) const
 {
-	//draw line only if there's more data to be drawn after it
 	if (m_Database->m_SampleBuffers.size() < m_Database->m_NBufferToDisplay || m_ParentDisplayView->m_LeftmostDisplayedTime > m_Database->m_StartTime[0]) {
-		const auto samplesPerBuffer = size_t(m_Database->m_DimSizes[1]);
-
-		//position on screen of latest buffer
+		const auto samplesPerBuffer     = size_t(m_Database->m_DimSizes[1]);
 		const auto latestBufferPosition = size_t(firstBufferPos + m_Database->m_SampleBuffers.size() - 1 - firstBufferIdx);
+		const double endX               = getSampleXCoordinate(latestBufferPosition, samplesPerBuffer - 1, 0);
+		const gint lineX                = gint(endX) + 1;
 
-		//X position of last sample that will be drawn when channel is refreshed
-		const double endX = getSampleXCoordinate(latestBufferPosition, samplesPerBuffer - 1, 0);
+		// Dark fade zone to the right of the progress line (upcoming blank area)
+		const gint fadeW = 22;
+		const gint fadeX = lineX + 1;
+		if (fadeX < m_Width) {
+			cairo_t* cr = gdk_cairo_create(m_DrawingArea->window);
+			cairo_set_source_rgba(cr, 0.0, 0.0, 0.0, 0.28);
+			cairo_rectangle(cr, fadeX, 0, (fadeX + fadeW < m_Width ? fadeW : m_Width - fadeX), m_Height);
+			cairo_fill(cr);
+			cairo_destroy(cr);
+		}
 
-		const GdkColor lineColor = InitGDKColor(0, 0, 65535, 0);
+		// Progress line — 2 px, green
+		gdk_gc_set_line_attributes(m_DrawingArea->style->fg_gc[GTK_WIDGET_STATE(m_DrawingArea)], 2, GDK_LINE_SOLID, GDK_CAP_BUTT, GDK_JOIN_BEVEL);
+		const GdkColor lineColor = InitGDKColor(0, 0, 52000, 0);
 		gdk_gc_set_rgb_fg_color(m_DrawingArea->style->fg_gc[GTK_WIDGET_STATE(m_DrawingArea)], &lineColor);
-
-		//draw line one pixel after last sample
-		gdk_draw_line(m_DrawingArea->window, m_DrawingArea->style->fg_gc[GTK_WIDGET_STATE(m_DrawingArea)], gint(endX) + 1, 0, gint(endX) + 1, m_Height - 1);
+		gdk_draw_line(m_DrawingArea->window, m_DrawingArea->style->fg_gc[GTK_WIDGET_STATE(m_DrawingArea)], lineX, 0, lineX, m_Height - 1);
+		gdk_gc_set_line_attributes(m_DrawingArea->style->fg_gc[GTK_WIDGET_STATE(m_DrawingArea)], 1, GDK_LINE_SOLID, GDK_CAP_BUTT, GDK_JOIN_BEVEL);
 
 		const GdkColor black = InitGDKColor(0, 0, 0, 0);
 		gdk_gc_set_rgb_fg_color(m_DrawingArea->style->fg_gc[GTK_WIDGET_STATE(m_DrawingArea)], &black);
@@ -987,6 +1046,10 @@ void CSignalChannelDisplay::drawZeroLine() const
 {
 	//switch to dashed line
 	gdk_gc_set_line_attributes(m_DrawingArea->style->fg_gc[GTK_WIDGET_STATE(m_DrawingArea)], 1, GDK_LINE_ON_OFF_DASH, GDK_CAP_BUTT, GDK_JOIN_BEVEL);
+	if (m_UGMode) {
+		const GdkColor zeroColor = InitGDKColor(0, 22000, 22000, 26000);  // subtle mid-grey on dark bg
+		gdk_gc_set_rgb_fg_color(m_DrawingArea->style->fg_gc[GTK_WIDGET_STATE(m_DrawingArea)], &zeroColor);
+	}
 
 	const double sizePerChannel = m_Height / double(m_ChannelList.size());
 

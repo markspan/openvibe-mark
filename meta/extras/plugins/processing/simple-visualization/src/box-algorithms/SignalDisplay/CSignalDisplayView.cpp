@@ -21,6 +21,7 @@
 
 #include "CSignalDisplayView.hpp"
 #include <algorithm>
+#include <cmath>
 #include <iostream>
 #include <sstream>
 #include "../../utils.hpp"
@@ -44,6 +45,8 @@ static void ChannelSelectButtonCB(GtkButton* button, gpointer data);
 static void ChannelSelectDialogApplyButtonCB(GtkButton* button, gpointer data);
 static void StimulationColorsButtonCB(GtkButton* button, gpointer data);
 static gint CloseStimulationColorsWindow(GtkWidget* widget, GdkEvent* event, gpointer data);
+static void BackgroundColorButtonCB(GtkButton* button, gpointer data);
+static void LineColorButtonCB(GtkButton* button, gpointer data);
 static void InformationButtonCB(GtkButton* button, gpointer data);
 static void MultiViewButtonCB(GtkButton* button, gpointer data);
 static void MultiViewDialogApplyButtonCB(GtkButton* button, gpointer data);
@@ -95,6 +98,14 @@ void CSignalDisplayView::Construct(CBufferDatabase& /*oBufferDatabase*/, const d
 					 this);
 	g_signal_connect(G_OBJECT(gtk_builder_get_object(m_Builder, "SignalDisplayStimulationColorsButton")), "clicked",
 					 G_CALLBACK(StimulationColorsButtonCB), this);
+	if (gtk_builder_get_object(m_Builder, "SignalDisplayBackgroundColorButton")) {
+		g_signal_connect(G_OBJECT(gtk_builder_get_object(m_Builder, "SignalDisplayBackgroundColorButton")), "clicked",
+						 G_CALLBACK(BackgroundColorButtonCB), this);
+	}
+	if (gtk_builder_get_object(m_Builder, "SignalDisplayLineColorButton")) {
+		g_signal_connect(G_OBJECT(gtk_builder_get_object(m_Builder, "SignalDisplayLineColorButton")), "clicked",
+						 G_CALLBACK(LineColorButtonCB), this);
+	}
 	g_signal_connect(G_OBJECT(gtk_builder_get_object(m_Builder, "SignalDisplayMultiViewButton")), "clicked", G_CALLBACK(MultiViewButtonCB), this);
 	g_signal_connect(G_OBJECT(gtk_builder_get_object(m_Builder, "SignalDisplayInformationButton")), "clicked", G_CALLBACK(InformationButtonCB),
 					 this);
@@ -372,6 +383,10 @@ void CSignalDisplayView::Init()
 	//create and attach display widget
 	auto* channelDisplay    = new CSignalChannelDisplay(this, channelDisplayW, channelDisplayH, leftRulerW, leftRulerH);
 	channelDisplay->m_UGMode = m_UGMode;
+	if (m_UGMode) {
+		const GdkColor bg = { 0, 61680, 61680, 61680 };
+		gtk_widget_modify_bg(channelDisplay->m_DrawingArea, GTK_STATE_NORMAL, &bg);
+	}
 	m_ChannelDisplay[0]     = channelDisplay;
 	for (size_t i = 0; i < nChannel; ++i) {
 		channelDisplay->AddChannel(i);
@@ -411,6 +426,10 @@ void CSignalDisplayView::Init()
 	//create and attach display widget
 	auto* multiViewDisplay           = new CSignalChannelDisplay(this, channelDisplayW, channelDisplayH, leftRulerW, leftRulerH);
 	multiViewDisplay->m_UGMode       = m_UGMode;
+	if (m_UGMode) {
+		const GdkColor bg = { 0, 61680, 61680, 61680 };
+		gtk_widget_modify_bg(multiViewDisplay->m_DrawingArea, GTK_STATE_NORMAL, &bg);
+	}
 	m_ChannelDisplay[tableSize - 1]  = multiViewDisplay;
 	multiViewDisplay->AddChannel(0);
 	gtk_table_attach(GTK_TABLE(m_SignalDisplayTable), multiViewDisplay->GetRulerWidget(0), 2, 3, //third column
@@ -960,7 +979,20 @@ void CSignalDisplayView::GetStimulationColor(const uint64_t id, GdkColor& color)
 void CSignalDisplayView::SetUGMode(const bool ugMode)
 {
 	m_UGMode = ugMode;
-	for (auto* cd : m_ChannelDisplay) { if (cd) { cd->m_UGMode = ugMode; } }
+	// Lighter blue-grey for UG; restore white + black for non-UG
+	if (ugMode) {
+		m_BackgroundColor = { 0, 61680, 61680, 61680 };   // #F0F0F0  Windows default grey
+		m_LineColor       = { 0,     0,     0,     0 };   // black
+	} else {
+		m_BackgroundColor = { 0, 65535, 65535, 65535 };
+		m_LineColor       = { 0,     0,     0,     0 };
+	}
+	for (auto* cd : m_ChannelDisplay) {
+		if (cd) {
+			cd->m_UGMode = ugMode;
+			gtk_widget_modify_bg(cd->m_DrawingArea, GTK_STATE_NORMAL, &m_BackgroundColor);
+		}
+	}
 }
 
 void CSignalDisplayView::GetMultiViewColor(const size_t index, GdkColor& color)
@@ -1221,6 +1253,73 @@ void StimulationColorsButtonCB(GtkButton* /*button*/, gpointer data)
 		gtk_widget_show_all(dialog);
 		view->m_StimulationColorsShown = true;
 	}
+}
+
+// Returns WCAG relative luminance of a GdkColor (0-65535 components)
+static double GdkLuminance(const GdkColor& c)
+{
+	auto lin = [](double v) { return v <= 0.04045 ? v / 12.92 : std::pow((v + 0.055) / 1.055, 2.4); };
+	return 0.2126 * lin(c.red / 65535.0) + 0.7152 * lin(c.green / 65535.0) + 0.0722 * lin(c.blue / 65535.0);
+}
+
+// WCAG contrast ratio between two colours
+static double ContrastRatio(const GdkColor& a, const GdkColor& b)
+{
+	double la = GdkLuminance(a), lb = GdkLuminance(b);
+	if (la < lb) { std::swap(la, lb); }
+	return (la + 0.05) / (lb + 0.05);
+}
+
+// High-contrast complement: black on light backgrounds, white on dark ones
+static GdkColor ContrastComplement(const GdkColor& against)
+{
+	return GdkLuminance(against) > 0.35
+		? GdkColor{ 0,     0,     0,     0 }    // black on light bg
+		: GdkColor{ 0, 61680, 61680, 61680 };   // Windows grey on dark bg
+}
+
+void BackgroundColorButtonCB(GtkButton* /*button*/, gpointer data)
+{
+	auto* view = reinterpret_cast<CSignalDisplayView*>(data);
+
+	GtkWidget* dialog = gtk_color_selection_dialog_new("Background colour");
+	GtkColorSelection* sel = GTK_COLOR_SELECTION(gtk_color_selection_dialog_get_color_selection(GTK_COLOR_SELECTION_DIALOG(dialog)));
+	gtk_color_selection_set_current_color(sel, &view->m_BackgroundColor);
+	gtk_color_selection_set_has_opacity_control(sel, FALSE);
+
+	if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK) {
+		gtk_color_selection_get_current_color(sel, &view->m_BackgroundColor);
+		// If line and background are too similar, bump line to a contrasting colour
+		if (ContrastRatio(view->m_BackgroundColor, view->m_LineColor) < 3.0) {
+			view->m_LineColor = ContrastComplement(view->m_BackgroundColor);
+		}
+		for (auto* cd : view->m_ChannelDisplay) {
+			if (cd) { gtk_widget_modify_bg(cd->m_DrawingArea, GTK_STATE_NORMAL, &view->m_BackgroundColor); }
+		}
+	}
+	gtk_widget_destroy(dialog);
+}
+
+void LineColorButtonCB(GtkButton* /*button*/, gpointer data)
+{
+	auto* view = reinterpret_cast<CSignalDisplayView*>(data);
+
+	GtkWidget* dialog = gtk_color_selection_dialog_new("Signal line colour");
+	GtkColorSelection* sel = GTK_COLOR_SELECTION(gtk_color_selection_dialog_get_color_selection(GTK_COLOR_SELECTION_DIALOG(dialog)));
+	gtk_color_selection_set_current_color(sel, &view->m_LineColor);
+	gtk_color_selection_set_has_opacity_control(sel, FALSE);
+
+	if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK) {
+		gtk_color_selection_get_current_color(sel, &view->m_LineColor);
+		// If line and background are too similar, bump background to a contrasting colour
+		if (ContrastRatio(view->m_LineColor, view->m_BackgroundColor) < 3.0) {
+			view->m_BackgroundColor = ContrastComplement(view->m_LineColor);
+			for (auto* cd : view->m_ChannelDisplay) {
+				if (cd) { gtk_widget_modify_bg(cd->m_DrawingArea, GTK_STATE_NORMAL, &view->m_BackgroundColor); }
+			}
+		}
+	}
+	gtk_widget_destroy(dialog);
 }
 
 //Called when the user presses the Information button (opens the information dialog)

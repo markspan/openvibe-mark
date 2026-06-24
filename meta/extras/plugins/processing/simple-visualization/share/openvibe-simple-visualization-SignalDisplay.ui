@@ -1011,6 +1011,32 @@
           </packing>
         </child>
         <child>
+          <object class="GtkToolButton" id="SignalDisplayBackgroundColorButton">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="use_action_appearance">False</property>
+            <property name="label" translatable="yes">Background</property>
+            <property name="stock_id">gtk-color-picker</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="homogeneous">True</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkToolButton" id="SignalDisplayLineColorButton">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="use_action_appearance">False</property>
+            <property name="label" translatable="yes">Line</property>
+            <property name="stock_id">gtk-select-color</property>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="homogeneous">True</property>
+          </packing>
+        </child>
+        <child>
           <object class="GtkSeparatorToolItem" id="SignalDisplayToolbarSeparator3">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
