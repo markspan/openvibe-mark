@@ -85,18 +85,23 @@ static gboolean UGStimIdleDraw(gpointer data)
 		cairo_t* cr      = gdk_cairo_create(d->drawingArea->window);
 		const int height = d->stopY - d->startY;
 
-		// Dotted 1-px orange line
+		// Dotted 1-px orange line style
 		const double dashes[] = { 3.0, 3.0 };
-		cairo_set_dash(cr, dashes, 2, 0.0);
 		cairo_set_line_width(cr, 1.0);
-		cairo_set_source_rgba(cr, 0.94, 0.44, 0.0, 1.0);
+
+		// Track placed flag bounding boxes to avoid vertical overlap
+		struct PlacedFlag { double x1, y1, x2, y2; };
+		std::vector<PlacedFlag> placed;
 
 		for (const auto& s : d->stims) {
+			// Dotted trigger line
+			cairo_set_dash(cr, dashes, 2, 0.0);
+			cairo_set_source_rgba(cr, 0.94, 0.44, 0.0, 1.0);
 			cairo_move_to(cr, s.x + 0.5, d->startY);
 			cairo_line_to(cr, s.x + 0.5, d->stopY);
 			cairo_stroke(cr);
 
-			// Flag badge
+			// Measure text to size the flag
 			PangoFontDescription* font = pango_font_description_new();
 			pango_font_description_set_family(font, "Sans");
 			pango_font_description_set_absolute_size(font, 10 * PANGO_SCALE);
@@ -107,14 +112,31 @@ static gboolean UGStimIdleDraw(gpointer data)
 			int tw = 0, th = 0;
 			pango_layout_get_pixel_size(layout, &tw, &th);
 
-			const int pad = 2;
-			const int tip = 7;
-			const int bw  = tw + 2 * pad;
-			const int bh  = th + 2 * pad;
-			const double lx = s.x - bw - tip - 1.0;
-			const double ly = d->startY + 3.0;
+			const int    pad = 2;
+			const int    tip = 7;
+			const int    bw  = tw + 2 * pad;
+			const int    bh  = th + 2 * pad;
+			const double lx  = s.x - bw - tip - 1.0;
+
+			// Find a non-overlapping y, starting from the top
+			double ly      = d->startY + 3.0;
+			bool   changed = true;
+			while (changed && ly + bh <= d->stopY) {
+				changed = false;
+				for (const auto& p : placed) {
+					if (lx < p.x2 && lx + bw + tip > p.x1 && ly < p.y2 && ly + bh > p.y1) {
+						ly      = p.y2 + 1.0;   // shift just below the colliding flag
+						changed = true;
+						break;
+					}
+				}
+			}
+			if (ly + bh > d->stopY) { ly = d->startY + 3.0; }   // fallback: top
+
+			placed.push_back({ lx, ly, lx + bw + tip, ly + bh });
 
 			// Flag path: rectangle body + right-pointing triangle
+			cairo_set_dash(cr, nullptr, 0, 0.0);
 			cairo_new_path(cr);
 			cairo_move_to(cr, lx,            ly);
 			cairo_line_to(cr, lx + bw,       ly);
@@ -123,12 +145,11 @@ static gboolean UGStimIdleDraw(gpointer data)
 			cairo_line_to(cr, lx,            ly + bh);
 			cairo_close_path(cr);
 
-			// Fill: light blue at 20% opacity
-			cairo_set_dash(cr, nullptr, 0, 0.0);   // solid for fill/outline
-			cairo_set_source_rgba(cr, 0.52, 0.76, 1.0, 0.20);
+			// Fill: lighter blue at 65% opacity
+			cairo_set_source_rgba(cr, 0.75, 0.90, 1.0, 0.65);
 			cairo_fill_preserve(cr);
-			// Outline: solid darker blue
-			cairo_set_source_rgb(cr, 0.20, 0.45, 0.80);
+			// Outline: solid mid blue
+			cairo_set_source_rgb(cr, 0.30, 0.55, 0.85);
 			cairo_set_line_width(cr, 1.0);
 			cairo_stroke(cr);
 
@@ -137,11 +158,6 @@ static gboolean UGStimIdleDraw(gpointer data)
 			cairo_move_to(cr, lx + pad, ly + pad);
 			pango_cairo_show_layout(cr, layout);
 			g_object_unref(layout);
-
-			// Restore dotted line style for next stim line
-			cairo_set_dash(cr, dashes, 2, 0.0);
-			cairo_set_line_width(cr, 1.0);
-			cairo_set_source_rgba(cr, 0.94, 0.44, 0.0, 1.0);
 		}
 		cairo_destroy(cr);
 	}
@@ -842,7 +858,7 @@ bool CSignalChannelDisplay::drawSignals(const size_t firstBuffer, const size_t l
 	cairo_t* lineCr = nullptr;
 	if (m_UGMode && m_DrawingArea->window) {
 		lineCr = gdk_cairo_create(GDK_DRAWABLE(m_DrawingArea->window));
-		cairo_set_antialias(lineCr, CAIRO_ANTIALIAS_GOOD);
+		cairo_set_antialias(lineCr, CAIRO_ANTIALIAS_BEST);
 		cairo_set_line_width(lineCr, 1.0);
 		cairo_set_line_join(lineCr, CAIRO_LINE_JOIN_ROUND);
 	}
