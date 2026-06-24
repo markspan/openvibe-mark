@@ -99,7 +99,6 @@ static gboolean UGStimIdleDraw(gpointer data)
 			// Flag badge
 			PangoFontDescription* font = pango_font_description_new();
 			pango_font_description_set_family(font, "Sans");
-			pango_font_description_set_weight(font, PANGO_WEIGHT_BOLD);
 			pango_font_description_set_absolute_size(font, 10 * PANGO_SCALE);
 			PangoLayout* layout = pango_cairo_create_layout(cr);
 			pango_layout_set_text(layout, s.label.c_str(), -1);
