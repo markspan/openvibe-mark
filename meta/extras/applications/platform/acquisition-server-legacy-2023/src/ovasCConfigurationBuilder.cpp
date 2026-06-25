@@ -340,6 +340,9 @@ void CConfigurationBuilder::buttonChangeChannelNamesCB()
 	gtk_tree_view_set_model(electrodeNameTreeView, GTK_TREE_MODEL(m_electrodeNameListStore));
 	gtk_tree_view_set_model(channelNameTreeView, GTK_TREE_MODEL(m_channelNameListStore));
 
+	// Allow selecting multiple electrode names at once so they can be applied as a block
+	gtk_tree_selection_set_mode(gtk_tree_view_get_selection(electrodeNameTreeView), GTK_SELECTION_MULTIPLE);
+
 	// Selects first line of each
 	if (gtk_tree_model_get_iter_first(GTK_TREE_MODEL(m_electrodeNameListStore), &itElectrodeName)) {
 		gtk_tree_selection_select_iter(gtk_tree_view_get_selection(electrodeNameTreeView), &itElectrodeName);
@@ -379,12 +382,7 @@ void CConfigurationBuilder::buttonChangeChannelNamesCB()
 						std::list<std::string> electrodNames;
 						// Reads channel names from file
 						std::string name;
-						while (getline(file, name)) {
-							//if line is empty, skip the channel by setting empty string as name
-							//if we do not, loading will squeeze the channels together.
-							if (name.empty()) { name = ""; }
-							electrodNames.push_back(name);
-						}
+						while (getline(file, name)) { electrodNames.push_back(name); }
 						file.close();
 
 						// Clears list store
@@ -443,34 +441,49 @@ void CConfigurationBuilder::buttonChangeChannelNamesCB()
 
 void CConfigurationBuilder::buttonApplyChannelNameCB()
 {
-	GtkTreeIter itElectrodeName, itChannelName;
+	GtkTreeIter itChannelName;
 	GtkTreeView* electrodeNameTreeView = GTK_TREE_VIEW(m_electrodeNameTreeView);
 	GtkTreeView* channelNameTreeView   = GTK_TREE_VIEW(m_channelNameTreeView);
 
-	GtkTreeSelection* channelNameTreeViewSelection   = gtk_tree_view_get_selection(channelNameTreeView);
-	GtkTreeSelection* electrodeNameTreeViewSelection = gtk_tree_view_get_selection(electrodeNameTreeView);
+	GtkTreeSelection* channelSel   = gtk_tree_view_get_selection(channelNameTreeView);
+	GtkTreeSelection* electrodeSel = gtk_tree_view_get_selection(electrodeNameTreeView);
 
-	if (!gtk_tree_selection_get_selected(channelNameTreeViewSelection, nullptr, &itChannelName)) {
+	// Ensure a starting row is selected on the right
+	if (!gtk_tree_selection_get_selected(channelSel, nullptr, &itChannelName)) {
 		if (gtk_tree_model_get_iter_first(GTK_TREE_MODEL(m_channelNameListStore), &itChannelName)) {
-			gtk_tree_selection_select_iter(channelNameTreeViewSelection, &itChannelName);
+			gtk_tree_selection_select_iter(channelSel, &itChannelName);
+		}
+	}
+	if (!gtk_tree_selection_get_selected(channelSel, nullptr, &itChannelName)) { return; }
+
+	// Collect selected electrode rows in model order
+	GtkTreeModel* electrodeModel = GTK_TREE_MODEL(m_electrodeNameListStore);
+	GList* selectedPaths         = gtk_tree_selection_get_selected_rows(electrodeSel, &electrodeModel);
+	if (!selectedPaths) { return; }
+
+	// Sort by path so they are applied top-to-bottom regardless of selection order
+	selectedPaths = g_list_sort(selectedPaths, reinterpret_cast<GCompareFunc>(gtk_tree_path_compare));
+
+	for (GList* node = selectedPaths; node != nullptr; node = node->next) {
+		GtkTreeIter itElec;
+		if (!gtk_tree_model_get_iter(electrodeModel, &itElec, static_cast<GtkTreePath*>(node->data))) { continue; }
+
+		gchar* name = nullptr;
+		gtk_tree_model_get(electrodeModel, &itElec, 0, &name, -1);
+		gtk_list_store_set(m_channelNameListStore, &itChannelName, 1, name, -1);
+
+		// Advance the right-panel selection; stay on last row if we run out
+		GtkTreeIter next = itChannelName;
+		if (gtk_tree_model_iter_next(GTK_TREE_MODEL(m_channelNameListStore), &next)) {
+			itChannelName = next;
 		}
 	}
 
-	if (gtk_tree_selection_get_selected(channelNameTreeViewSelection, nullptr, &itChannelName)) {
-		if (gtk_tree_selection_get_selected(electrodeNameTreeViewSelection, nullptr, &itElectrodeName)) {
-			gchar* name = nullptr;
-			gtk_tree_model_get(GTK_TREE_MODEL(m_electrodeNameListStore), &itElectrodeName, 0, &name, -1);
-			gtk_list_store_set(m_channelNameListStore, &itChannelName, 1, name, -1);
-			if (gtk_tree_model_iter_next(GTK_TREE_MODEL(m_channelNameListStore), &itChannelName)) {
-				gtk_tree_selection_select_iter(channelNameTreeViewSelection, &itChannelName);
-			}
-			else {
-				if (gtk_tree_model_get_iter_first(GTK_TREE_MODEL(m_channelNameListStore), &itChannelName)) {
-					gtk_tree_selection_select_iter(channelNameTreeViewSelection, &itChannelName);
-				}
-			}
-		}
-	}
+	// Leave the right-panel selection at the row after the last one filled
+	gtk_tree_selection_unselect_all(channelSel);
+	gtk_tree_selection_select_iter(channelSel, &itChannelName);
+
+	g_list_free_full(selectedPaths, reinterpret_cast<GDestroyNotify>(gtk_tree_path_free));
 }
 
 void CConfigurationBuilder::buttonRemoveChannelNameCB()

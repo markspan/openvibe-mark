@@ -429,7 +429,7 @@
             </child>
             <child>
               <object class="GtkButton" id="button_change_channel_names">
-                <property name="label" translatable="yes">Change channel names</property>
+                <property name="label" translatable="yes">Cap definition...</property>
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="receives_default">False</property>

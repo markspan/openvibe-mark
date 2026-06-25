@@ -129,10 +129,11 @@ bool CConfigurationEEGO_UG::preConfigure()
 	if (hint)
 	{
 		std::stringstream ss;
-		ss << "Name the channels you want to record. "
-		   << "Slots 1-" << m_nEEGChannels << " are EEG (referential), "
-		   << "slots " << (m_nEEGChannels + 1) << "-" << totalChannels << " are BIP. "
-		   << "Unnamed slots are skipped.";
+		ss << "Slot number = hardware channel index. "
+		   << "Slots 1-" << m_nEEGChannels << " are EEG, "
+		   << "slots " << (m_nEEGChannels + 1) << "-" << totalChannels << " are BIP/AUX. "
+		   << "Name a slot to record it; leave blank to skip. "
+		   << "Use 'Change channel names' to edit, save and load your cap definition.";
 		gtk_label_set_text(GTK_LABEL(hint), ss.str().c_str());
 	}
 

@@ -157,7 +157,7 @@ bool CDriverEEGO_UG::check_configuration()
 	const uint64_t maskEEG = getRefChannelMask();
 
 	const std::bitset<64> bitsetEEG(maskEEG);
-	const std::bitset<24> bitsetBip(maskBip);
+	const std::bitset<64> bitsetBip(maskBip);   // SDK mask is uint64; 24-bit limit was wrong
 
 	const size_t allChannels = bitsetBip.count() + bitsetEEG.count() + 2; // trigger and sample count as additional channels
 	if (allChannels < m_header.getChannelCount())
@@ -246,11 +246,14 @@ bool CDriverEEGO_UG::start()
 	 * This step is necessary for the 511 series amplifiers
 	 */
 	try {
-		// stop old streams, if existing
+		// Open a temporary stream so the SDK initialises the device state, query the
+		// amplifier type while the stream is live (511 series needs this), then close it.
 		m_pStream.reset();
-		m_pAmplifier->OpenEegStream(m_header.getSamplingFrequency());
-
-		const std::string amplifierType = m_pAmplifier->getType();
+		std::string amplifierType;
+		{
+			std::unique_ptr<es::stream> tmp(m_pAmplifier->OpenEegStream(m_header.getSamplingFrequency()));
+			amplifierType = m_pAmplifier->getType();
+		}
 
 		std::regex amplifierType511("EE511");
 		if (std::regex_search(amplifierType, amplifierType511) && m_iBIPRange != 2.5 * m_iEEGRange) {
@@ -291,18 +294,16 @@ bool CDriverEEGO_UG::start()
 			return false;
 		}
 
-		// find trigger channel
+		// Find trigger channel — use its sequential position in the stream buffer,
+		// not getIndex() which returns the device-internal index.
 		auto list                  = m_pStream->getChannelList();
 		const auto triggerIterator = std::find_if(list.begin(), list.end(), [](eemagine::sdk::channel& chan)
 		{
 			return chan.getType() == eemagine::sdk::channel::trigger;
 		});
 
-		if (triggerIterator == list.end())
-		{
-			m_triggerChannel = -1; // Unkown
-		}
-		else { m_triggerChannel = (*triggerIterator).getIndex(); }
+		if (triggerIterator == list.end()) { m_triggerChannel = -1; }
+		else { m_triggerChannel = int(std::distance(list.begin(), triggerIterator)); }
 
 		// Wait till we are really getting data.
 		while (m_pStream->getData().getSampleCount() == 0)

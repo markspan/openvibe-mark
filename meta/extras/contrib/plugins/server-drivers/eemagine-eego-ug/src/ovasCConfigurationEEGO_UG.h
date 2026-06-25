@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #if defined(TARGET_HAS_ThirdPartyEEGOAPI)
 
@@ -11,35 +11,23 @@
 
 namespace OpenViBE {
 namespace AcquisitionServer {
-/**
- * \class CConfigurationEEGO_UG
- * \author Steffen Heimes (Eemagine GmbH)
- * \date Fri May 27 21:48:42 2011
- * \brief The CConfigurationEEGO_UG handles the configuration dialog for setting specific for EEGO.
- * \sa CDriverEEGO
- */
+
 class CConfigurationEEGO_UG final : public CConfigurationBuilder
 {
 public:
-
 	CConfigurationEEGO_UG(IDriverContext& ctx, const char* gtkBuilderFilename, CHeaderEEGO_UG& eegoHeader,
-	                   uint32_t nEEGChannels = 64, uint32_t nBIPChannels = 24,
-	                   std::vector<int> samplingRates = {},
-	                   std::vector<double> eegRanges  = {},
-	                   std::vector<double> bipRanges  = {});
+	                       uint32_t nEEGChannels = 64, uint32_t nBIPChannels = 24,
+	                       std::vector<int>    samplingRates = {},
+	                       std::vector<double> eegRanges    = {},
+	                       std::vector<double> bipRanges    = {});
 
 	bool preConfigure() override;
 	bool postConfigure() override;
 
-	// Data
 protected:
-
 	IDriverContext& m_driverCtx;
 
-	// Methods
 private:
-
-	// Data
 	CHeaderEEGO_UG& m_eegoHeader;
 
 	uint32_t m_nEEGChannels = 64;
@@ -52,9 +40,8 @@ private:
 	GtkComboBox* m_eegRangeComboBox = nullptr;
 	GtkComboBox* m_bipRangeComboBox = nullptr;
 };
+
 }  // namespace AcquisitionServer
 }  // namespace OpenViBE
 
 #endif
-
-
