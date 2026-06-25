@@ -68,7 +68,7 @@ protected:
 
 	SettingsHelper m_settings;
 	IDriverCallback* m_callback = nullptr;
-	CHeaderEEGO m_header;
+	CHeaderEEGO_UG m_header;
 
 	uint32_t m_nSamplePerSentBlock = 0;
 	std::unique_ptr<float[]> m_sample;
@@ -97,5 +97,6 @@ private:
 
 
 #endif
+
 
 

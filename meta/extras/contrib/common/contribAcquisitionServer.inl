@@ -23,7 +23,7 @@
 #include "ovasCDriverOpenALAudioCapture.h"
 #include "ovasCDriverOpenEEGModularEEG.h"
 #include "ovasCDriverOpenBCI.h"
-#include "ovasCDriverEEGO_UGUG.h"
+#include "ovasCDriverEEGO_UG.h"
 
 #if !defined(WIN32) || defined(TARGET_PLATFORM_i386)
 #include "ovasCDriverFieldtrip.h"
@@ -88,5 +88,6 @@ inline void InitiateContributions(AcquisitionServer::CAcquisitionServerGUI* pGUI
 }
 }  // namespace Contributions
 }  // namespace OpenViBE
+
 
 
