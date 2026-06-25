@@ -1,40 +1,40 @@
-#if defined TARGET_HAS_ThirdPartyEEGOAPI
+﻿#if defined TARGET_HAS_ThirdPartyEEGOAPI
 
 #include <algorithm>
 #include <locale>
 #include <boost/algorithm/string.hpp>
 
-#include "ovasCHeaderEEGO.h"
+#include "ovasCHeaderEEGO_UG.h"
 
 namespace OpenViBE {
 namespace AcquisitionServer {
 
-void CHeaderEEGO::setEEGRange(const uint32_t range)
+void CHeaderEEGO_UG::setEEGRange(const uint32_t range)
 {
 	m_iEEGRange    = range;
 	m_bEEGRangeSet = true;
 }
 
-void CHeaderEEGO::setEEGMask(const CString& mask)
+void CHeaderEEGO_UG::setEEGMask(const CString& mask)
 {
 	m_sEEGMask    = mask;
 	m_bEEGMaskSet = true;
 }
 
-void CHeaderEEGO::setBIPRange(const uint32_t range)
+void CHeaderEEGO_UG::setBIPRange(const uint32_t range)
 {
 	m_iBIPRange    = range;
 	m_bBIPRangeSet = true;
 }
 
-void CHeaderEEGO::setBIPMask(const CString& mask)
+void CHeaderEEGO_UG::setBIPMask(const CString& mask)
 {
 	m_sBIPMask    = mask;
 	m_bBIPMaskSet = true;
 }
 
 /* static */
-bool CHeaderEEGO::convertMask(char const* str, uint64_t& out)
+bool CHeaderEEGO_UG::convertMask(char const* str, uint64_t& out)
 {
 	bool error = false;
 
@@ -92,3 +92,5 @@ bool CHeaderEEGO::convertMask(char const* str, uint64_t& out)
 }  // namespace AcquisitionServer
 }  // namespace OpenViBE
 #endif
+
+

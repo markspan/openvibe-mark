@@ -1,4 +1,4 @@
-include_directories("${CMAKE_SOURCE_DIR}/extras/contrib/common")
+﻿include_directories("${CMAKE_SOURCE_DIR}/extras/contrib/common")
 
 set(ADDITIONAL_PATH "${CMAKE_SOURCE_DIR}/extras/contrib/plugins/server-extensions/external-stimulations/")
 include_directories(${ADDITIONAL_PATH})
@@ -46,7 +46,7 @@ OV_ADD_CONTRIB_DRIVER("${CMAKE_SOURCE_DIR}/extras/contrib/plugins/server-drivers
 OV_ADD_CONTRIB_DRIVER("${CMAKE_SOURCE_DIR}/extras/contrib/plugins/server-drivers/openal-mono16bit-audiocapture")
 OV_ADD_CONTRIB_DRIVER("${CMAKE_SOURCE_DIR}/extras/contrib/plugins/server-drivers/openeeg-modulareeg")
 OV_ADD_CONTRIB_DRIVER("${CMAKE_SOURCE_DIR}/extras/contrib/plugins/server-drivers/openbci")
-OV_ADD_CONTRIB_DRIVER("${CMAKE_SOURCE_DIR}/extras/contrib/plugins/server-drivers/eemagine-eego")
+OV_ADD_CONTRIB_DRIVER("${CMAKE_SOURCE_DIR}/extras/contrib/plugins/server-drivers/eemagine-eego-ug")
 if(WIN32 AND "${PLATFORM_TARGET}" STREQUAL "x64")
 	message(STATUS "  SKIPPED fieldtrip on x64")
 else()
@@ -56,3 +56,4 @@ endif()
 if(OV_COMPILE_TESTS)
 	add_subdirectory("../../../contrib/plugins/server-extensions/tcp-tagging/test" "./test")
 endif(OV_COMPILE_TESTS)
+

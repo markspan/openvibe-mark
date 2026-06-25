@@ -1,4 +1,4 @@
-#if defined(TARGET_HAS_ThirdPartyEEGOAPI)
+﻿#if defined(TARGET_HAS_ThirdPartyEEGOAPI)
 
 // stl includes
 #include <algorithm>
@@ -18,8 +18,8 @@
 #include <system/ovCTime.h>
 
 // auxilliary classes for this implementation
-#include "ovasCDriverEEGO.h"
-#include "ovasCConfigurationEEGO.h"
+#include "ovasCDriverEEGO_UG.h"
+#include "ovasCConfigurationEEGO_UG.h"
 
 // The interface to the driver
 // We have to setup the binding method and the unicode support first
@@ -70,9 +70,9 @@ namespace es = eemagine::sdk;
 //___________________________________________________________________//
 //                                                                   //
 
-CDriverEEGO::CDriverEEGO(IDriverContext& ctx)
+CDriverEEGO_UG::CDriverEEGO_UG(IDriverContext& ctx)
 	: IDriver(ctx)
-	  , m_settings("AcquisitionServer_Driver_EEGO", m_driverCtx.getConfigurationManager()), m_triggerChannel(-1) // == Nonexistent
+	  , m_settings("AcquisitionServer_Driver_EEGO-UG", m_driverCtx.getConfigurationManager()), m_triggerChannel(-1) // == Nonexistent
 	  , m_lastTriggerValue(~0) // Set every bit to 1
 	  , m_iBIPRange(1500)
 	  , m_iEEGRange(1000)
@@ -96,11 +96,11 @@ CDriverEEGO::CDriverEEGO(IDriverContext& ctx)
 	m_settings.load();
 }
 
-CDriverEEGO::~CDriverEEGO() {}
+CDriverEEGO_UG::~CDriverEEGO_UG() {}
 
-const char* CDriverEEGO::getName() { return "EEGO"; }
+const char* CDriverEEGO_UG::getName() { return "EEGO-UG"; }
 
-bool CDriverEEGO::initialize(const uint32_t nSamplePerSentBlock, IDriverCallback& callback)
+bool CDriverEEGO_UG::initialize(const uint32_t nSamplePerSentBlock, IDriverCallback& callback)
 {
 	if (m_driverCtx.isConnected()
 		|| !m_header.isChannelCountSet()
@@ -150,7 +150,7 @@ bool CDriverEEGO::initialize(const uint32_t nSamplePerSentBlock, IDriverCallback
 	return true;
 }
 
-bool CDriverEEGO::check_configuration()
+bool CDriverEEGO_UG::check_configuration()
 {
 	// get masks from configuration
 	const uint64_t maskBip = getBipChannelMask();
@@ -187,27 +187,27 @@ bool CDriverEEGO::check_configuration()
 	return true;
 }
 
-uint64_t CDriverEEGO::getRefChannelMask() const
+uint64_t CDriverEEGO_UG::getRefChannelMask() const
 {
 	uint64_t maskEEG(0);
-	if (!CHeaderEEGO::convertMask(m_sEEGMask, maskEEG))
+	if (!CHeaderEEGO_UG::convertMask(m_sEEGMask, maskEEG))
 	{
 		m_driverCtx.getLogManager() << Kernel::LogLevel_Warning << "Error converting mask: m_sEEGMask: " << m_sEEGMask << "\n";
 	}
 	return maskEEG;
 }
 
-uint64_t CDriverEEGO::getBipChannelMask() const
+uint64_t CDriverEEGO_UG::getBipChannelMask() const
 {
 	uint64_t maskBip(0);
-	if (!CHeaderEEGO::convertMask(m_sBIPMask, maskBip))
+	if (!CHeaderEEGO_UG::convertMask(m_sBIPMask, maskBip))
 	{
 		m_driverCtx.getLogManager() << Kernel::LogLevel_Warning << "Error converting mask: maskBip: " << maskBip << "\n";
 	}
 	return maskBip;
 }
 
-eemagine::sdk::factory& CDriverEEGO::factory()
+eemagine::sdk::factory& CDriverEEGO_UG::factory()
 {
 	if (m_pFactory == nullptr)
 	{
@@ -233,14 +233,14 @@ eemagine::sdk::factory& CDriverEEGO::factory()
 	return *m_pFactory;
 }
 
-bool CDriverEEGO::start()
+bool CDriverEEGO_UG::start()
 {
 	if (!m_driverCtx.isConnected() || m_driverCtx.isStarted() || !m_pAmplifier) { return false; }
 
 	// Check configuration
 	if (!check_configuration()) { return false; }
 
-	m_driverCtx.getLogManager() << Kernel::LogLevel_Info << "CDriverEEGO::start - Check amplifier" << "\n";
+	m_driverCtx.getLogManager() << Kernel::LogLevel_Info << "CDriverEEGO_UG::start - Check amplifier" << "\n";
 	/*
 	 * Check device type and set BIP range accordingly
 	 * This step is necessary for the 511 series amplifiers
@@ -319,7 +319,7 @@ bool CDriverEEGO::start()
 	return true;
 }
 
-bool CDriverEEGO::loop()
+bool CDriverEEGO_UG::loop()
 {
 	bool result = false;
 
@@ -330,7 +330,7 @@ bool CDriverEEGO::loop()
 	return result;
 }
 
-bool CDriverEEGO::loop_wrapped()
+bool CDriverEEGO_UG::loop_wrapped()
 {
 	if (!m_driverCtx.isConnected()) { return false; }
 	if (!m_driverCtx.isStarted() && !m_driverCtx.isImpedanceCheckRequested()) { return true; } // Nothing to be done here!
@@ -425,7 +425,7 @@ bool CDriverEEGO::loop_wrapped()
 	return true;
 }
 
-bool CDriverEEGO::stop()
+bool CDriverEEGO_UG::stop()
 {
 	if (!m_driverCtx.isConnected() || !m_driverCtx.isStarted()) { return false; }
 
@@ -450,7 +450,7 @@ bool CDriverEEGO::stop()
 	return true;
 }
 
-bool CDriverEEGO::uninitialize()
+bool CDriverEEGO_UG::uninitialize()
 {
 	if (!m_driverCtx.isConnected() || m_driverCtx.isStarted()) { return false; }
 
@@ -469,17 +469,51 @@ bool CDriverEEGO::uninitialize()
 
 //___________________________________________________________________//
 //                                                                   //
-bool CDriverEEGO::isConfigurable()
+bool CDriverEEGO_UG::isConfigurable()
 {
 	return true; // change to false if your device is not configurable
 }
 
-bool CDriverEEGO::configure()
+bool CDriverEEGO_UG::configure()
 {
-	// Change this line if you need to specify some references to your driver attribute that need configuration, e.g. the connection ID.
-	CConfigurationEEGO config(m_driverCtx,
-							  Directories::getDataDir() + "/applications/acquisition-server/interface-EEGO.ui",
-							  m_header);
+	// Query the amplifier for the actual channel layout so the dialog shows real counts.
+	// Falls back to 64 EEG + 24 BIP if the amplifier is not connected.
+	uint32_t nEEG = 64, nBIP = 24;
+	std::vector<int>    samplingRates;
+	std::vector<double> eegRanges, bipRanges;
+	try
+	{
+		std::unique_ptr<es::amplifier> amp(factory().getAmplifier());
+		const auto channels = amp->getChannelList();
+		nEEG = uint32_t(std::count_if(channels.begin(), channels.end(),
+			[](const es::channel& c) { return c.getType() == es::channel::reference; }));
+		nBIP = uint32_t(std::count_if(channels.begin(), channels.end(),
+			[](const es::channel& c) { return c.getType() == es::channel::bipolar; }));
+		samplingRates = amp->getSamplingRatesAvailable();
+		eegRanges     = amp->getReferenceRangesAvailable();
+		bipRanges     = amp->getBipolarRangesAvailable();
+		m_driverCtx.getLogManager() << Kernel::LogLevel_Info
+			<< "EEGO: found " << nEEG << " EEG, " << nBIP << " BIP, "
+			<< samplingRates.size() << " sampling rates, "
+			<< eegRanges.size() << " EEG ranges, "
+			<< bipRanges.size() << " BIP ranges\n";
+	}
+	catch (...) {
+		m_driverCtx.getLogManager() << Kernel::LogLevel_Warning
+			<< "EEGO: could not query amplifier at configure time, using hardcoded defaults\n";
+		GtkWidget* dlg = gtk_message_dialog_new(nullptr, GTK_DIALOG_MODAL, GTK_MESSAGE_WARNING, GTK_BUTTONS_OK,
+			"Cannot find an EEGO amplifier.\nIs it connected and switched on?");
+		gtk_window_set_title(GTK_WINDOW(dlg), "EEGO not found");
+		gtk_dialog_run(GTK_DIALOG(dlg));
+		gtk_widget_destroy(dlg);
+	}
+
+	CConfigurationEEGO_UG config(m_driverCtx,
+							  Directories::getDataDir() + "/applications/acquisition-server/interface-EEGO-UG.ui",
+							  m_header, nEEG, nBIP,
+							  std::move(samplingRates),
+							  std::move(eegRanges),
+							  std::move(bipRanges));
 
 	m_header.setBIPRange(m_iBIPRange);
 	m_header.setEEGRange(m_iEEGRange);
@@ -500,3 +534,5 @@ bool CDriverEEGO::configure()
 }  // namespace AcquisitionServer
 }  // namespace OpenViBE
 #endif
+
+

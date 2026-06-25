@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 /*
 #include "openeeg-modulareeg/src/ovasCDriverOpenEEGModularEEG.h"
 #include "field-trip-protocol/src/ovasCDriverFieldtrip.h"
@@ -23,7 +23,7 @@
 #include "ovasCDriverOpenALAudioCapture.h"
 #include "ovasCDriverOpenEEGModularEEG.h"
 #include "ovasCDriverOpenBCI.h"
-#include "ovasCDriverEEGO.h"
+#include "ovasCDriverEEGO_UGUG.h"
 
 #if !defined(WIN32) || defined(TARGET_PLATFORM_i386)
 #include "ovasCDriverFieldtrip.h"
@@ -80,7 +80,7 @@ inline void InitiateContributions(AcquisitionServer::CAcquisitionServerGUI* pGUI
 	drivers->push_back(new AcquisitionServer::CDriverOpenALAudioCapture(pAS->getDriverContext()));
 #endif
 #if defined(TARGET_HAS_ThirdPartyEEGOAPI)
-	drivers->push_back(new AcquisitionServer::CDriverEEGO(pAS->getDriverContext()));
+	drivers->push_back(new AcquisitionServer::CDriverEEGO_UG(pAS->getDriverContext()));
 #endif
 
 	pGUI->registerPlugin(new AcquisitionServer::Plugins::CPluginExternalStimulations(context));
@@ -88,3 +88,5 @@ inline void InitiateContributions(AcquisitionServer::CAcquisitionServerGUI* pGUI
 }
 }  // namespace Contributions
 }  // namespace OpenViBE
+
+

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #if defined TARGET_HAS_ThirdPartyEEGOAPI
 
@@ -6,11 +6,11 @@
 
 namespace OpenViBE {
 namespace AcquisitionServer {
-class CHeaderEEGO final : public CHeader
+class CHeaderEEGO_UG final : public CHeader
 {
 public:
 
-	CHeaderEEGO() { }
+	CHeaderEEGO_UG() { }
 
 	// EEG, referential channels
 	// range
@@ -61,3 +61,5 @@ protected:
 }  // namespace OpenViBE
 
 #endif
+
+

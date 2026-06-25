@@ -1,11 +1,11 @@
-#pragma once
+﻿#pragma once
 
 #if defined(TARGET_HAS_ThirdPartyEEGOAPI)
 
 #include <memory>
 
 #include "ovasIDriver.h"
-#include "ovasCHeaderEEGO.h"
+#include "ovasCHeaderEEGO_UG.h"
 #include <openvibe/ov_all.h>
 
 #include "../ovasCSettingsHelper.h"
@@ -23,19 +23,19 @@ class factory;
 namespace OpenViBE {
 namespace AcquisitionServer {
 /**
- * \class CDriverEEGO
+ * \class CDriverEEGO_UG
  * \author Steffen Heimes (eemagine GmbH)
  * \date Mon Oct 20 14:40:33 2014
- * \brief The CDriverEEGO allows the acquisition server to acquire data from an EEGO device.
+ * \brief The CDriverEEGO_UG allows the acquisition server to acquire data from an EEGO device.
  *
  * \sa CConfigurationEEGO
  */
-class CDriverEEGO final : public IDriver
+class CDriverEEGO_UG final : public IDriver
 {
 public:
 
-	explicit CDriverEEGO(IDriverContext& ctx);
-	~CDriverEEGO() override;
+	explicit CDriverEEGO_UG(IDriverContext& ctx);
+	~CDriverEEGO_UG() override;
 	const char* getName() override;
 
 	bool initialize(const uint32_t nSamplePerSentBlock, IDriverCallback& callback) override;
@@ -97,3 +97,5 @@ private:
 
 
 #endif
+
+
