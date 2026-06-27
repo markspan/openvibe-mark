@@ -1,7 +1,4 @@
 ; UG-Lab cumulative patch for OpenViBE 3.7.0
-; Files are taken directly from meta\build\ in the repository.
-; Compiled by the GitHub Action release-patch.yml.
-
 #ifndef PatchVersion
   #define PatchVersion "0.0.0"
 #endif
@@ -27,16 +24,11 @@ CreateUninstallRegKey=yes
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
-Source: "..\meta\build\bin\openvibe-acquisition-server.exe";
-    DestDir: "{app}\bin"; Flags: ignoreversion
-Source: "..\meta\build\bin\openvibe-plugins-simple-visualization.dll";
-    DestDir: "{app}\bin"; Flags: ignoreversion
-Source: "..\meta\build\bin\openvibe-plugins-stimulation.dll";
-    DestDir: "{app}\bin"; Flags: ignoreversion
-Source: "..\meta\build\share\openvibe\applications\acquisition-server\interface-EEGO-UG.ui";
-    DestDir: "{app}\share\openvibe\applications\acquisition-server"; Flags: ignoreversion
-Source: "..\meta\build\share\openvibe\plugins\simple-visualization\openvibe-simple-visualization-SignalDisplay.ui";
-    DestDir: "{app}\share\openvibe\plugins\simple-visualization"; Flags: ignoreversion
+Source: "..\meta\build\bin\openvibe-acquisition-server.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
+Source: "..\meta\build\bin\openvibe-plugins-simple-visualization.dll"; DestDir: "{app}\bin"; Flags: ignoreversion
+Source: "..\meta\build\bin\openvibe-plugins-stimulation.dll"; DestDir: "{app}\bin"; Flags: ignoreversion
+Source: "..\meta\build\share\openvibe\applications\acquisition-server\interface-EEGO-UG.ui"; DestDir: "{app}\share\openvibe\applications\acquisition-server"; Flags: ignoreversion
+Source: "..\meta\build\share\openvibe\plugins\simple-visualization\openvibe-simple-visualization-SignalDisplay.ui"; DestDir: "{app}\share\openvibe\plugins\simple-visualization"; Flags: ignoreversion
 
 [Code]
 function NextButtonClick(CurPageID: Integer): Boolean;
