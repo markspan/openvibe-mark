@@ -21,13 +21,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Derive version from date and run number
+      - name: Derive version
         id: ver
         shell: pwsh
         run: |
           $v = (Get-Date -Format "yyyy.MMdd") + ".${{ github.run_number }}"
-          echo "version=$v" >> $env:GITHUB_OUTPUT
-          echo "tag=v$v"    >> $env:GITHUB_OUTPUT
+          "version=$v" >> $env:GITHUB_OUTPUT
+          "tag=v$v"    >> $env:GITHUB_OUTPUT
 
       - name: Install Inno Setup
         shell: pwsh
@@ -57,11 +57,13 @@ jobs:
           }
           $lines -join "`n" | Out-File release-notes.txt -Encoding utf8
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.ver.outputs.tag }}
-          name: "UG-Lab Patch ${{ steps.ver.outputs.version }}"
-          body_path: release-notes.txt
-          files: installer/patch-ug-${{ steps.ver.outputs.version }}.exe
-          make_latest: true
+      - name: Create release
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $exe = "installer\patch-ug-${{ steps.ver.outputs.version }}.exe"
+          gh release create "${{ steps.ver.outputs.tag }}" $exe `
+            --title "UG-Lab Patch ${{ steps.ver.outputs.version }}" `
+            --notes-file release-notes.txt `
+            --latest
