@@ -1,0 +1,72 @@
+name: Release UG-Lab patch
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'meta/build/bin/openvibe-acquisition-server.exe'
+      - 'meta/build/bin/openvibe-plugins-simple-visualization.dll'
+      - 'meta/build/bin/openvibe-plugins-stimulation.dll'
+      - 'meta/build/share/openvibe/applications/acquisition-server/interface-EEGO-UG.ui'
+      - 'meta/build/share/openvibe/plugins/simple-visualization/openvibe-simple-visualization-SignalDisplay.ui'
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh repo clone ${{ github.repository }} . -- --depth 1 --branch ${{ github.ref_name }}
+
+      - name: Derive version
+        id: ver
+        shell: pwsh
+        run: |
+          $v = (Get-Date -Format "yyyy.MMdd") + ".${{ github.run_number }}"
+          "version=$v" >> $env:GITHUB_OUTPUT
+          "tag=v$v"    >> $env:GITHUB_OUTPUT
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Compile installer
+        shell: pwsh
+        run: |
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\iscc.exe"
+          & $iscc /DPatchVersion=${{ steps.ver.outputs.version }} installer\patch-ug.iss
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed (exit $LASTEXITCODE)" }
+
+      - name: Build release notes
+        shell: pwsh
+        run: |
+          $files = @(
+            "meta/build/bin/openvibe-acquisition-server.exe",
+            "meta/build/bin/openvibe-plugins-simple-visualization.dll",
+            "meta/build/bin/openvibe-plugins-stimulation.dll",
+            "meta/build/share/openvibe/applications/acquisition-server/interface-EEGO-UG.ui",
+            "meta/build/share/openvibe/plugins/simple-visualization/openvibe-simple-visualization-SignalDisplay.ui"
+          )
+          $lines = @("Cumulative UG-Lab patch for OpenViBE 3.7.0", "", "Files in this release:")
+          foreach ($f in $files) {
+            $size = [math]::Round((Get-Item $f).Length / 1KB)
+            $lines += "  $f  ($size KB)"
+          }
+          $lines -join "`n" | Out-File release-notes.txt -Encoding utf8
+
+      - name: Create release
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $exe = "installer\patch-ug-${{ steps.ver.outputs.version }}.exe"
+          gh release create "${{ steps.ver.outputs.tag }}" $exe `
+            --title "UG-Lab Patch ${{ steps.ver.outputs.version }}" `
+            --notes-file release-notes.txt `
+            --latest

@@ -1,0 +1,8 @@
+# UG-Lab patch manifest
+# One path per line, relative to repo root, forward slashes.
+# Add a new line here whenever a new build file is patched.
+meta/build/bin/openvibe-acquisition-server.exe
+meta/build/bin/openvibe-plugins-simple-visualization.dll
+meta/build/bin/openvibe-plugins-stimulation.dll
+meta/build/share/openvibe/applications/acquisition-server/interface-EEGO-UG.ui
+meta/build/share/openvibe/plugins/simple-visualization/openvibe-simple-visualization-SignalDisplay.ui
