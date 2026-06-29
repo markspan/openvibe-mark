@@ -7,7 +7,7 @@
             "command": "cmd",
             "args": [
                 "/c",
-                "\"C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools\\VC\\Auxiliary\\Build\\vcvars64.bat\" && cd /d \"${workspaceFolder}\\meta\\build\" && \"C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\Ninja\\ninja.exe\" openvibe-plugins-simple-visualization && \"C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\Ninja\\ninja.exe\" -t compdb > compile_commands.json"
+                "\"C:\\Users\\P154492\\AppData\\Local\\anaconda3\\Scripts\\activate.bat\" openvibe-370 && \"C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools\\VC\\Auxiliary\\Build\\vcvars64.bat\" && cd /d \"${workspaceFolder}\\meta\\build\" && \"C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\Ninja\\ninja.exe\" openvibe-plugins-simple-visualization && \"C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\Ninja\\ninja.exe\" -t compdb > compile_commands.json"
             ],
             "group": {
                 "kind": "build",
@@ -25,10 +25,25 @@
             "command": "cmd",
             "args": [
                 "/c",
-                "\"C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools\\VC\\Auxiliary\\Build\\vcvars64.bat\" && cd /d \"${workspaceFolder}\\meta\\build\" && \"C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\Ninja\\ninja.exe\" && \"C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\Ninja\\ninja.exe\" -t compdb > compile_commands.json"
+                "\"C:\\Users\\P154492\\AppData\\Local\\anaconda3\\Scripts\\activate.bat\" openvibe-370 && \"C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools\\VC\\Auxiliary\\Build\\vcvars64.bat\" && cd /d \"${workspaceFolder}\\meta\\build\" && \"C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\Ninja\\ninja.exe\" && \"C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools\\Common7\\IDE\\CommonExtensions\\Microsoft\\CMake\\Ninja\\ninja.exe\" -t compdb > compile_commands.json"
             ],
             "group": "build",
             "problemMatcher": "$msCompile",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "cmake: reconfigure",
+            "type": "shell",
+            "command": "cmd",
+            "args": [
+                "/c",
+                "\"C:\\Users\\P154492\\AppData\\Local\\anaconda3\\Scripts\\activate.bat\" openvibe-370 && \"C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\BuildTools\\VC\\Auxiliary\\Build\\vcvars64.bat\" && cd /d \"${workspaceFolder}\\meta\\build\" && \"C:\\Users\\P154492\\AppData\\Local\\anaconda3\\envs\\openvibe-370\\Library\\bin\\cmake.exe\" .."
+            ],
+            "group": "build",
+            "problemMatcher": [],
             "presentation": {
                 "reveal": "always",
                 "panel": "shared"
