@@ -24,3 +24,5 @@
 !/meta/build/share/openvibe/applications/acquisition-server/interface-EEGO-UG.ui
 !/meta/build/share/openvibe/plugins/simple-visualization/openvibe-simple-visualization-SignalDisplay.ui
 # --- end UG-Lab patch files ---
+meta/build/.ninja_deps
+/meta/build
