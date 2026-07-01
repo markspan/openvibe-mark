@@ -8,6 +8,9 @@
 #include <list>
 #include <cstdlib>
 #include <cstring>
+#include <cctype>
+#include <iterator>
+#include <map>
 
 #define OVAS_ElectrodeNames_File           OpenViBE::Directories::getDataDir() + "/applications/acquisition-server/electrode-names.txt"
 #define OVAS_ConfigureGUIElectrodes_File   OpenViBE::Directories::getDataDir() + "/applications/acquisition-server/interface-channel-names.ui"
@@ -31,6 +34,82 @@ static void GTKComboBoxSetActiveText(GtkComboBox* box, const gchar* sActiveText)
 			index++;
 		} while (gtk_tree_model_iter_next(treeModel, &it));
 	}
+}
+
+// Minimal parser for a Charmeleon montage file:
+//   { "<name>": { ..., "LabelText": "Cz", "HardwareChannel": 16, ... }, ... }
+// Returns HardwareChannel (1-based) -> electrode name. Robust to key order; entry
+// objects are flat (all scalar fields), which the Charmeleon export guarantees.
+static std::map<int, std::string> parseCharmeleonMontage(const std::string& s)
+{
+	std::map<int, std::string> result;
+	const size_t n = s.size();
+	size_t i       = 0;
+
+	auto skipWS = [&]() { while (i < n && std::isspace(static_cast<unsigned char>(s[i]))) { ++i; } };
+
+	auto readString = [&](std::string& out) -> bool {
+		skipWS();
+		if (i >= n || s[i] != '"') { return false; }
+		++i;
+		out.clear();
+		while (i < n && s[i] != '"') { out += s[i++]; }
+		if (i < n && s[i] == '"') { ++i; return true; }
+		return false;
+	};
+
+	skipWS();
+	if (i >= n || s[i] != '{') { return result; }
+	++i;
+
+	while (true) {
+		skipWS();
+		if (i < n && s[i] == '}') { ++i; break; }
+
+		std::string key;
+		if (!readString(key)) { break; }
+		skipWS();
+		if (i < n && s[i] == ':') { ++i; }
+		skipWS();
+		if (i >= n || s[i] != '{') { break; }
+		++i;
+
+		std::string label;
+		int channel    = 0;
+		bool haveLabel = false, haveChannel = false;
+
+		while (true) {
+			skipWS();
+			if (i < n && s[i] == '}') { ++i; break; }
+
+			std::string field;
+			if (!readString(field)) { break; }
+			skipWS();
+			if (i < n && s[i] == ':') { ++i; }
+			skipWS();
+
+			if (field == "LabelText") { if (readString(label)) { haveLabel = true; } }
+			else if (field == "HardwareChannel") {
+				std::string num;
+				while (i < n && (std::isdigit(static_cast<unsigned char>(s[i])) || s[i] == '-')) { num += s[i++]; }
+				if (!num.empty()) { channel = std::atoi(num.c_str()); haveChannel = true; }
+			}
+			else {
+				if (i < n && s[i] == '"') { std::string dummy; readString(dummy); }
+				else { while (i < n && s[i] != ',' && s[i] != '}') { ++i; } }
+			}
+
+			skipWS();
+			if (i < n && s[i] == ',') { ++i; }
+		}
+
+		if (haveLabel && haveChannel && channel > 0) { result[channel] = label; }
+
+		skipWS();
+		if (i < n && s[i] == ',') { ++i; }
+	}
+
+	return result;
 }
 
 static void button_change_channel_names_cb(GtkButton* /*button*/, void* data)
@@ -172,6 +251,16 @@ bool CConfigurationBuilder::preConfigure()
 	}
 	gtk_builder_connect_signals(m_builder, nullptr);
 	gtk_builder_connect_signals(m_builderChannel, nullptr);
+
+	// Add a "Load from Charmeleon montage" action to the channel-names dialog
+	// (response id 3, handled in buttonChangeChannelNamesCB). Placed first so it
+	// sits beside the existing Load.../Save... buttons.
+	GtkWidget* channelDialog = GTK_WIDGET(gtk_builder_get_object(m_builderChannel, "channel-names"));
+	if (channelDialog) {
+		GtkWidget* loadMontageBtn = gtk_dialog_add_button(GTK_DIALOG(channelDialog), "Montage...", 3);
+		GtkWidget* actionArea     = gtk_dialog_get_action_area(GTK_DIALOG(channelDialog));
+		if (actionArea && loadMontageBtn) { gtk_box_reorder_child(GTK_BOX(actionArea), loadMontageBtn, 0); }
+	}
 
 	// Configures interface with preconfigured values
 
@@ -426,6 +515,36 @@ void CConfigurationBuilder::buttonChangeChannelNamesCB()
 					g_free(fileName);
 				}
 				gtk_widget_destroy(widgetDialogOpen);
+			}
+			break;
+			case 3: // Load channel names from a Charmeleon montage (name -> HardwareChannel)
+			{
+				GtkWidget* montageChooser = gtk_file_chooser_dialog_new("Select Charmeleon montage (*.json)...", nullptr, GTK_FILE_CHOOSER_ACTION_OPEN,
+																	GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL, GTK_STOCK_OPEN, GTK_RESPONSE_ACCEPT, nullptr);
+				GtkFileFilter* jsonFilter = gtk_file_filter_new();
+				gtk_file_filter_set_name(jsonFilter, "Charmeleon montage (*.json)");
+				gtk_file_filter_add_pattern(jsonFilter, "*.json");
+				gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(montageChooser), jsonFilter);
+				if (gtk_dialog_run(GTK_DIALOG(montageChooser)) == GTK_RESPONSE_ACCEPT) {
+					char* fileName = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(montageChooser));
+					std::ifstream file(fileName);
+					if (file.is_open()) {
+						const std::string text((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+						file.close();
+						const std::map<int, std::string> montage = parseCharmeleonMontage(text);
+						// Charmeleon HardwareChannel is 1-based; row r (0-based) shows as channel r+1.
+						size_t r = 0;
+						if (gtk_tree_model_get_iter_first(GTK_TREE_MODEL(m_channelNameListStore), &itChannelName)) {
+							do {
+								const auto it = montage.find(int(r) + 1);
+								gtk_list_store_set(m_channelNameListStore, &itChannelName, 1, it != montage.end() ? it->second.c_str() : "", -1);
+								++r;
+							} while (gtk_tree_model_iter_next(GTK_TREE_MODEL(m_channelNameListStore), &itChannelName));
+						}
+					}
+					g_free(fileName);
+				}
+				gtk_widget_destroy(montageChooser);
 			}
 			break;
 			default: break;
