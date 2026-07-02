@@ -37,9 +37,11 @@ static void GTKComboBoxSetActiveText(GtkComboBox* box, const gchar* sActiveText)
 }
 
 // Minimal parser for a Charmeleon montage file:
-//   { "<name>": { ..., "LabelText": "Cz", "HardwareChannel": 16, ... }, ... }
-// Returns HardwareChannel (1-based) -> electrode name. Robust to key order; entry
-// objects are flat (all scalar fields), which the Charmeleon export guarantees.
+//   { "<name>": { ..., "IsActive": true, "LabelText": "Cz", "HardwareChannel": 16, ... }, ... }
+// Returns HardwareChannel (1-based) -> electrode name for the ACTIVE electrodes only
+// ("IsActive": true); inactive electrodes are dropped here so they never reach a slot.
+// Robust to key order; entry objects are flat (all scalar fields), which the Charmeleon
+// export guarantees.
 static std::map<int, std::string> parseCharmeleonMontage(const std::string& s)
 {
 	std::map<int, std::string> result;
@@ -76,7 +78,7 @@ static std::map<int, std::string> parseCharmeleonMontage(const std::string& s)
 
 		std::string label;
 		int channel    = 0;
-		bool haveLabel = false, haveChannel = false;
+		bool haveLabel = false, haveChannel = false, isActive = false;
 
 		while (true) {
 			skipWS();
@@ -94,6 +96,12 @@ static std::map<int, std::string> parseCharmeleonMontage(const std::string& s)
 				while (i < n && (std::isdigit(static_cast<unsigned char>(s[i])) || s[i] == '-')) { num += s[i++]; }
 				if (!num.empty()) { channel = std::atoi(num.c_str()); haveChannel = true; }
 			}
+			else if (field == "IsActive") {
+				// JSON boolean literal; only an explicit "true" marks the electrode active
+				std::string lit;
+				while (i < n && std::isalpha(static_cast<unsigned char>(s[i]))) { lit += s[i++]; }
+				isActive = (lit == "true");
+			}
 			else {
 				if (i < n && s[i] == '"') { std::string dummy; readString(dummy); }
 				else { while (i < n && s[i] != ',' && s[i] != '}') { ++i; } }
@@ -103,7 +111,10 @@ static std::map<int, std::string> parseCharmeleonMontage(const std::string& s)
 			if (i < n && s[i] == ',') { ++i; }
 		}
 
-		if (haveLabel && haveChannel && channel > 0) { result[channel] = label; }
+		// Admit an electrode only when it is active and carries a valid 1-based hardware
+		// channel. The channel-in-amplifier-range check happens where the map is applied
+		// (the channel-name rows span exactly the amplifier's channels).
+		if (haveLabel && haveChannel && channel > 0 && isActive) { result[channel] = label; }
 
 		skipWS();
 		if (i < n && s[i] == ',') { ++i; }
@@ -533,6 +544,9 @@ void CConfigurationBuilder::buttonChangeChannelNamesCB()
 						file.close();
 						const std::map<int, std::string> montage = parseCharmeleonMontage(text);
 						// Charmeleon HardwareChannel is 1-based; row r (0-based) shows as channel r+1.
+						// The row set spans exactly the amplifier's channels, so a montage entry
+						// whose hardware channel is out of range has no row and is silently dropped:
+						// only active electrodes with an in-range hardware channel land in a slot.
 						size_t r = 0;
 						if (gtk_tree_model_get_iter_first(GTK_TREE_MODEL(m_channelNameListStore), &itChannelName)) {
 							do {
