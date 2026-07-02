@@ -118,10 +118,12 @@ bool CConfigurationEEGO_UG::preConfigure()
 	{
 		GtkAdjustment* adj = gtk_spin_button_get_adjustment(GTK_SPIN_BUTTON(m_nChannels));
 		gtk_adjustment_set_upper(adj, double(totalChannels));
-		// Default to all channels if nothing was previously configured
-		if (gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(m_nChannels)) > gint(totalChannels)) {
-			gtk_spin_button_set_value(GTK_SPIN_BUTTON(m_nChannels), double(totalChannels));
-		}
+		// Always expose every hardware slot for naming: the name-based design skips
+		// blank slots on Apply, so the count must span all hardware channels rather
+		// than track the previously-saved (compacted) channel count. Only clamping
+		// downward left the last hardware channel(s) unreachable once a smaller count
+		// had been stored (e.g. after naming fewer slots than the amplifier provides).
+		gtk_spin_button_set_value(GTK_SPIN_BUTTON(m_nChannels), double(totalChannels));
 	}
 
 	// Update hint label with actual counts
@@ -130,9 +132,9 @@ bool CConfigurationEEGO_UG::preConfigure()
 	{
 		std::stringstream ss;
 		ss << "Slot number = hardware channel index. "
-		   << "Slots 1-" << m_nEEGChannels << " are EEG, "
-		   << "slots " << (m_nEEGChannels + 1) << "-" << totalChannels << " are BIP/AUX. "
-		   << "Name a slot to record it; leave blank to skip. "
+		   << "Slots 1-" << m_nEEGChannels << " are EEG";
+		if (m_nBIPChannels > 0) { ss << ", slots " << (m_nEEGChannels + 1) << "-" << totalChannels << " are BIP/AUX"; }
+		ss << ". Name a slot to record it; leave blank to skip. "
 		   << "Use 'Change channel names' to edit, save and load your cap definition.";
 		gtk_label_set_text(GTK_LABEL(hint), ss.str().c_str());
 	}

@@ -57,11 +57,10 @@ THE SOFTWARE.
 #include <vector>
 #include <algorithm>
 
-#ifdef _MSC_VER
-namespace tr1 = std::tr1;
-#else
+// std::tr1 was removed from the MSVC STL (gone by MSVC 14.5x / VS 2026), so the
+// TR1 types this alias exposes (e.g. tr1::is_pod) now live directly in std, the
+// same as every non-MSVC compiler already assumed below.
 namespace tr1 = std;
-#endif
 
 
 #endif
